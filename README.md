@@ -50,4 +50,4 @@ docker-compsoe exec vue-web npm run watch
 docker-compose exec vue_web php artisan migrate
 ```
 
-- Run on browser with host: `[DOCKER_IP:3002`
+- Run on browser with host: `[DOCKER_IP]:3002`
