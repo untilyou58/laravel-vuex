@@ -39,7 +39,7 @@ class PhotoController extends Controller
         // Save file to S3
         // The third argument 'public' is for saving the file in a public state
         Storage::cloud()
-            ->putFileAs('', $request->photo, $photo->filename, 'public');
+            ->putFileAs('', $request->photo, $photo->filename);
 
         // To delete the file when there is a database error
         // Use Transaction

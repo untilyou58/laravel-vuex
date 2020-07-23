@@ -23,7 +23,7 @@ RUN apt-get update \
   && apt-get install -y nodejs \
   && : 'Install PHP Extensions' \
   && docker-php-ext-configure gd --with-jpeg=/usr/include/ --with-freetype=/usr/include/ \
-  && docker-php-ext-install -j$(nproc) gd \
+  && docker-php-ext-install -j$(nproc) gd  sockets\
   && docker-php-ext-install -j$(nproc) pdo_pgsql \
   && : 'Install Composer' \
   && chmod 755 /install-composer.sh \
