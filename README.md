@@ -35,9 +35,9 @@ docker-compose up -d
 docker-compose exec vue_web php artisan key:generate
 ```
 
-- Run server with port 8081
+- Run server with port 8000
 ```command
-docker-compose exec vue_web php artisan serve --host 0.0.0.0 --port 8081
+docker-compose exec vue_web php artisan serve --host 0.0.0.0 --port 8000
 ```
 
 - Run npm run watch

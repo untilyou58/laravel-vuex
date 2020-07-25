@@ -5,7 +5,7 @@ services:
     volumes:
       - ./web:/var/www/html/vue
     ports:
-      - 8081:8081
+      - 8000:8000
       - 3002:3002
 
   vue_database:

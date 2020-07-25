@@ -3,7 +3,14 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\LineServices;
+use LINE\LINEBot\Constant\HTTPHeader;
+use LINE\LINEBot;
+use LINE\LINEBot\MessageBuilder\TextMessageBuilder;
+use LINE\LINEBot\HTTPClient\CurlHTTPClient;
+use LINE\LINEBot\SignatureValidator;
+use Exception;
+use Log;
+// use App\LineServices;
 
 class LineController extends Controller
 {
@@ -14,10 +21,15 @@ class LineController extends Controller
      */
     public $line;
 
-    public function __construct(LineServices $line)
+    public function __construct()
     {
-        $this->line = $line;
+
     }
+
+    // public function __construct(LineServices $line)
+    // {
+    //     $this->line = $line;
+    // }
 
     /**
      * Show the application dashboard.
@@ -26,8 +38,24 @@ class LineController extends Controller
      */
     public function index(Request $request)
     {
-        $httpClient = new \LINE\LINEBot\HTTPClient\CurlHTTPClient(config('app.channel_token'));
-        $bot = new \LINE\LINEBot($httpClient, ['channelSecret' => config('app.channel_secret')]);
-        return $this->line->register();
+        $signature = $request->headers->get(HTTPHeader::LINE_SIGNATURE);
+        if (!SignatureValidator::validateSignature($request->getContent(), config('app.channel_secret'), $signature)) {
+            return;
+        }
+        $httpClient = new CurlHTTPClient(config('app.channel_token'));
+        $bot = new LINEBot($httpClient, ['channelSecret' => config('app.channel_secret')]);
+        $textMessageBuilder = new TextMessageBuilder('hello');
+        try {
+            $events = $bot->parseEventRequest($request->getContent(), $signature);
+            foreach ($events as $event) {
+                $replyToken = $event->getReplyToken();
+                $text = $event->getText();
+                $bot->replyText($replyToken, $text);
+            }
+        } catch (Exception $e) {
+            return;
+        }
+        return;
+        // return $this->line->register();
     }
 }
