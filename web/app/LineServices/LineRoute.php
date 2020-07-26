@@ -52,10 +52,13 @@ use App\LineServices\EventHandler\MessageHandler\VideoMessageHandler;
 use App\LineServices\EventHandler\PostbackEventHandler;
 use App\LineServices\EventHandler\ThingsEventHandler;
 use App\LineServices\EventHandler\UnfollowEventHandler;
+use Log;
 
-class Route
+class LineRoute
 {
-    public function register(\Slim\App $app)
+    
+
+    public function register()
     {
             /** @var LINEBot $bot */
             $bot = $this->bot;

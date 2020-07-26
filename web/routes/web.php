@@ -12,9 +12,7 @@ use Illuminate\Support\Facades\Route;
 | contains the "web" middleware group. Now create something great!
 |
 */
-
 Route::get('/{any?}', fn() => view('index'))->where('any', '.+');
-
 // Auth::routes();
 
 Route::post('/callback', 'LineController@index');

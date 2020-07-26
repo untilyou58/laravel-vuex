@@ -10,7 +10,7 @@ use LINE\LINEBot\HTTPClient\CurlHTTPClient;
 use LINE\LINEBot\SignatureValidator;
 use Exception;
 use Log;
-// use App\LineServices;
+use App\LineServices\LineRoute;
 
 class LineController extends Controller
 {
@@ -21,15 +21,15 @@ class LineController extends Controller
      */
     public $line;
 
-    public function __construct()
-    {
-
-    }
-
-    // public function __construct(LineServices $line)
+    // public function __construct()
     // {
-    //     $this->line = $line;
+
     // }
+
+    public function __construct(LineRoute $line)
+    {
+        $this->line = $line;
+    }
 
     /**
      * Show the application dashboard.
@@ -55,7 +55,7 @@ class LineController extends Controller
         } catch (Exception $e) {
             return;
         }
+        $this->line->register(); 
         return;
-        // return $this->line->register();
     }
 }

@@ -1,0 +1,74 @@
+version: '3'
+services:
+  vue_web:
+    container_name: ${COMPOSE_PROJECT_NAME}_apache
+    build:
+        context: ./apache
+        args:
+            - WEB_USER=${WEB_USER}
+            - WEB_GROUP=${WEB_GROUP}
+            - APACHE_ROOT_DIR=${APACHE_ROOT_DIR}
+    volumes:
+        - ../web:${PHP_APP_DIR}
+        - ../logs/apache:${APACHE_ROOT_DIR}/logs
+    ports:
+        - ${APACHE_EXPOSED_PORT}:80
+    networks:
+        public_net:
+            ipv4_address: ${APACHE_IP}
+    environment:
+        - APACHE_EXPOSED_PORT=${APACHE_EXPOSED_PORT}
+        - APACHE_ROOT_DIR=${APACHE_ROOT_DIR}
+        - PHP_IP=${PHP_IP}
+        - PHP_APP_DIR=${PHP_APP_DIR}
+        - WEB_USER=${WEB_USER}
+        - WEB_GROUP=${WEB_GROUP}
+
+  vue_php:
+    container_name: ${COMPOSE_PROJECT_NAME}_php
+    build:
+      context: ./php
+      args:
+        - WEB_USER=${WEB_USER}
+        - WEB_GROUP=${WEB_GROUP}
+        - PHP_ROOT_DIR=${PHP_ROOT_DIR}
+    working_dir: ${PHP_APP_DIR}
+    volumes:
+        - ../web:${PHP_APP_DIR}
+        - ../logs/php:${PHP_ROOT_DIR}/logs
+    depends_on:
+        - vue_web
+        - vue_database
+    networks:
+        public_net:
+            ipv4_address: ${PHP_IP}
+    ports:
+      - 3002:3002
+    environment:
+      - PHP_ROOT_DIR=${PHP_ROOT_DIR}
+      - APACHE_IP=${APACHE_IP}
+      - APACHE_EXPOSED_PORT=${APACHE_EXPOSED_PORT}
+      - WEB_USER=${WEB_USER}
+      - WEB_GROUP=${WEB_GROUP}
+
+  vue_database:
+    image: postgres:11-alpine
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: secret
+    volumes:
+      - ../logs/mysql:${POSTGRESQL_LOG_DIR}
+      - ./database:${POSTGRESQL_DATA_DIR}
+    ports:
+      - 5434:5432
+    networks:
+      public_net:
+          ipv4_address: ${MYSQL_IP}
+
+networks:
+  public_net:
+      driver: bridge
+      ipam:
+          driver: default
+          config:
+              - subnet: ${NETWORK_SUBNET}
