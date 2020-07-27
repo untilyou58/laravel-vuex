@@ -56,6 +56,8 @@ return [
 
     'asset_url' => env('ASSET_URL', null),
 
+    'channel_id' => env('LINEBOT_CHANNEL_ID', null),
+
     'channel_token' => env('LINEBOT_CHANNEL_TOKEN', null),
 
     'channel_secret' => env('LINEBOT_CHANNEL_SECRET', null),

@@ -8,27 +8,25 @@ use LINE\LINEBot;
 use LINE\LINEBot\MessageBuilder\TextMessageBuilder;
 use LINE\LINEBot\HTTPClient\CurlHTTPClient;
 use LINE\LINEBot\SignatureValidator;
+use App\Http\Services\LineServices;
 use Exception;
 use Log;
-use App\LineServices\LineRoute;
 
 class LineController extends Controller
 {
+    /**
+     * @var GetMessageService
+     */
+    private $lineService;
+
     /**
      * Create a new controller instance.
      *
      * @return void
      */
-    public $line;
-
-    // public function __construct()
-    // {
-
-    // }
-
-    public function __construct(LineRoute $line)
+    public function __construct(LineServices $lineService)
     {
-        $this->line = $line;
+        $this->lineService = $lineService;
     }
 
     /**
@@ -55,7 +53,15 @@ class LineController extends Controller
         } catch (Exception $e) {
             return;
         }
-        $this->line->register(); 
         return;
+    }
+    public function callback(Request $request)
+    {
+        $signature = $request->headers->get(HTTPHeader::LINE_SIGNATURE);
+        if (!SignatureValidator::validateSignature($request->getContent(), config('app.channel_secret'), $signature)) {
+            return;
+        }
+        logger("request : ", $request->all());
+        $this->lineService->handleRq($request);
     }
 }

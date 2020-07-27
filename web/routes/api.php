@@ -58,3 +58,5 @@ Route::get('/refresh-token', function (Illuminate\Http\Request $request) {
 
     return response()->json();
 });
+
+Route::post('/callback', 'LineController@callback');
