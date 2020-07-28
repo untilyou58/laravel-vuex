@@ -6,13 +6,16 @@ use Illuminate\Http\Request;
 use LINE\LINEBot\Event\MessageEvent;
 use LINE\LINEBot\Constant\HTTPHeader;
 use LINE\LINEBot;
-use LINE\LINEBot\MessageBuilder\TextMessageBuilder;
+use LINE\LINEBot\MessageBuilder\StickerMessageBuilder;
+use LINE\LINEBot\MessageBuilder\LocationMessageBuilder;
 use LINE\LINEBot\HTTPClient\CurlHTTPClient;
 use LINE\LINEBot\Event\AccountLinkEvent;
 use LINE\LINEBot\Event\BeaconDetectionEvent;
 use LINE\LINEBot\Event\FollowEvent;
-use LINE\LINEBot\Event\JoinEvent;
+use LINE\LINEBot\Event\MemberJoinEvent;
+use LINE\LINEBot\Event\MemberLeaveEvent;
 use LINE\LINEBot\Event\LeaveEvent;
+use LINE\LINEBot\Event\JoinEvent;
 use LINE\LINEBot\Event\MessageEvent\AudioMessage;
 use LINE\LINEBot\Event\MessageEvent\ImageMessage;
 use LINE\LINEBot\Event\MessageEvent\LocationMessage;
@@ -26,19 +29,6 @@ use LINE\LINEBot\Event\UnfollowEvent;
 use LINE\LINEBot\Event\UnknownEvent;
 use LINE\LINEBot\Exception\InvalidEventRequestException;
 use LINE\LINEBot\Exception\InvalidSignatureException;
-use LINE\LINEBot\KitchenSink\EventHandler\BeaconEventHandler;
-use LINE\LINEBot\KitchenSink\EventHandler\FollowEventHandler;
-use LINE\LINEBot\KitchenSink\EventHandler\JoinEventHandler;
-use LINE\LINEBot\KitchenSink\EventHandler\LeaveEventHandler;
-use LINE\LINEBot\KitchenSink\EventHandler\MessageHandler\AudioMessageHandler;
-use LINE\LINEBot\KitchenSink\EventHandler\MessageHandler\ImageMessageHandler;
-use LINE\LINEBot\KitchenSink\EventHandler\MessageHandler\LocationMessageHandler;
-use LINE\LINEBot\KitchenSink\EventHandler\MessageHandler\StickerMessageHandler;
-use LINE\LINEBot\KitchenSink\EventHandler\MessageHandler\TextMessageHandler;
-use LINE\LINEBot\KitchenSink\EventHandler\MessageHandler\VideoMessageHandler;
-use LINE\LINEBot\KitchenSink\EventHandler\PostbackEventHandler;
-use LINE\LINEBot\KitchenSink\EventHandler\ThingsEventHandler;
-use LINE\LINEBot\KitchenSink\EventHandler\UnfollowEventHandler;
 use LINE\LINEBot\SignatureValidator;
 use Exception;
 use Log;
@@ -69,59 +59,77 @@ class LineServices
                 if ($receive instanceof TextMessage) {
                     $text = $receive->getText();
                     $bot->replyText($receive->getReplyToken(), $text);
-                } elseif ($receive instanceof ImageMessage || $receive instanceof VideoMessage) {
-                    $content = $bot->getMessageContent($receive->getContentId());
-                    $meta = stream_get_meta_data($content->getFileHandle());
-                    $contentSize = filesize($meta['uri']);
-                    $type = $receive->isImage() ? 'image' : 'video';
-                    $previewContent = $bot->getMessageContentPreview($receive->getContentId());
-                    $previewMeta = stream_get_meta_data($previewContent->getFileHandle());
-                    $previewContentSize = filesize($previewMeta['uri']);
-                    $bot->replyText(
-                        $receive->getReplyToken(),
-                        "Thank you for sending a $type.\nOriginal file size: " .
-                        "$contentSize\nPreview file size: $previewContentSize"
-                    );
+                } elseif ($receive instanceof ImageMessage) {
+                    $contentProvider = $receive->getContentProvider();
+                    $replyToken = $receive->getReplyToken();
+                    if ($contentProvider->isExternal()) {
+                        $this->bot->replyMessage(
+                            $replyToken,
+                            new ImageMessageBuilder(
+                                $contentProvider->getOriginalContentUrl(),
+                                $contentProvider->getPreviewImageUrl()
+                            )
+                        );
+                        return;
+                    }
+                    $contentId = $receive->getMessageId();
+                    $image = $bot->getMessageContent($contentId)->getRawBody();
+                    $filePath = $_SERVER['DOCUMENT_ROOT'] . sha1(time()) . '.jpg';
+                    $filename = basename($filePath);
+            
+                    $fh = fopen($filePath, 'x');
+                    fwrite($fh, $image);
+                    fclose($fh);
+                } elseif ($receive instanceof VideoMessage) {
+                    // TODO
                 } elseif ($receive instanceof AudioMessage) {
                     $bot->replyText($receive->getReplyToken(), "Thank you for sending a audio.");
                 } elseif ($receive instanceof LocationMessage) {
-                    $bot->sendLocation(
-                        $receive->getReplyToken(),
-                        sprintf("%s\n%s", $receive->getText(), $receive->getAddress()),
-                        $receive->getLatitude(),
-                        $receive->getLongitude()
+                    $replyToken = $receive->getReplyToken();
+                    $title = $receive->getTitle();
+                    $address = $receive->getAddress();
+                    $latitude = $receive->getLatitude();
+                    $longitude = $receive->getLongitude();
+            
+                    $bot->replyMessage(
+                        $replyToken,
+                        new LocationMessageBuilder($title, $address, $latitude, $longitude)
                     );
                 } elseif ($receive instanceof StickerMessage) {
-                    $bot->sendSticker(
+                    $bot->replyMessage(
                         $receive->getReplyToken(),
-                        $receive->getStkId(),
-                        $receive->getStkPkgId(),
-                        $receive->getStkVer()
+                        new StickerMessageBuilder('1', '2')
                     );
                 }  else {
                     throw new Exception("Received invalid message type");
                 }
-            } elseif ($event instanceof UnfollowEvent) {
-                $handler = new UnfollowEventHandler($bot, $logger, $event);
-            } elseif ($event instanceof FollowEvent) {
-                $handler = new FollowEventHandler($bot, $logger, $event);
-            } elseif ($event instanceof JoinEvent) {
-                $handler = new JoinEventHandler($bot, $logger, $event);
-            } elseif ($event instanceof LeaveEvent) {
-                $handler = new LeaveEventHandler($bot, $logger, $event);
-            } elseif ($event instanceof PostbackEvent) {
-                $handler = new PostbackEventHandler($bot, $logger, $event);
-            } elseif ($event instanceof BeaconDetectionEvent) {
-                $handler = new BeaconEventHandler($bot, $logger, $event);
-            } elseif ($event instanceof AccountLinkEvent) {
-                $handler = new AccountLinkEventHandler($bot, $logger, $event);
-            } elseif ($event instanceof ThingsEvent) {
-                $handler = new ThingsEventHandler($bot, $logger, $event);
-            } elseif ($event instanceof UnknownEvent) {
-                $logger->info(sprintf('Unknown message type has come [type: %s]', $event->getType()));
+            } elseif ($receive instanceof UnfollowEvent) {
+                // TODO
+            } elseif ($receive instanceof FollowEvent) {
+                // TODO
+            } elseif ($receive instanceof MemberJoinEvent) {
+                
+            } elseif ($receive instanceof JoinEvent) {
+                // TODO
+            } elseif ($receive instanceof LeaveEvent) {
+                // TODO
+            } elseif ($receive instanceof MemberLeaveEvent) {
+                
+            } elseif ($receive instanceof PostbackEvent) {
+                // TODO
+            } elseif ($receive instanceof BeaconDetectionEvent) {
+                // TODO
+            } elseif ($receive instanceof AccountLinkEvent) {
+                // TODO
+            } elseif ($receive instanceof ThingsEvent) {
+                // TODO
+            } elseif ($receive instanceof UnknownEvent) {
+                // TODO
             } else {
+                logger("Exception : ", $receive->getType());
                 throw new Exception("Received invalid receive type");
             }
+            Log::info(print_r($receive, true));
         }
         return ;
     }
