@@ -16,7 +16,7 @@ class User extends Authenticatable
      * @var array
      */
     protected $fillable = [
-        'name', 'email', 'password',
+        'name', 'email', 'password', 'line_id'
     ];
 
     /**
@@ -35,7 +35,8 @@ class User extends Authenticatable
      * @var array
      */
     protected $visible = [
-        'name',
+        'name', 'email', 'password', 'line_id',
+        self::CREATED_AT, self::UPDATED_AT,
     ];
 
     /**

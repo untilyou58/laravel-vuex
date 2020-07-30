@@ -31,6 +31,13 @@ use LINE\LINEBot\Exception\InvalidEventRequestException;
 use LINE\LINEBot\Exception\InvalidSignatureException;
 use LINE\LINEBot\SignatureValidator;
 use Exception;
+use App\User;
+use App\Models\UserConversation;
+use App\Models\Messages;
+use App\Models\Conversations;
+use Illuminate\Support\Str;
+use DB;
+
 use Log;
 
 class LineServices
@@ -40,6 +47,9 @@ class LineServices
      */
     protected $bot;
     
+    /**
+     * LineServices constructor.
+     */
     public function __construct()
     {
         $httpClient = new CurlHTTPClient(config('app.channel_token'));
@@ -108,7 +118,7 @@ class LineServices
             } elseif ($receive instanceof FollowEvent) {
                 // TODO
             } elseif ($receive instanceof MemberJoinEvent) {
-                
+                $this->joinHandle($receive, $bot);
             } elseif ($receive instanceof JoinEvent) {
                 // TODO
             } elseif ($receive instanceof LeaveEvent) {
@@ -132,5 +142,48 @@ class LineServices
             Log::info(print_r($receive, true));
         }
         return ;
+    }
+
+    private function joinHandle(MemberJoinEvent $receive,LINEBot $bot)
+    {
+        if ($receive->isRoomEvent()) {
+            Log::info('RUN JOIN_HANDLE FN');
+            $userId = $receive->getMembers();
+            $roomId = $receive->getRoomId();
+            $userInfo = $bot->getProfile($userId[0]['userId']);
+            return $this->storeConversation($userId, $roomId, $userInfo);
+        }
+        return;
+    }
+
+    private function storeConversation($userId, $roomId, $userInfo)
+    {
+        try {
+            Log::info('RUN STORE_CONVERSATION FN');
+            DB::beginTransaction();
+            $user = User::where('line_id', $userInfo->userId)->first();
+            if (!$user) {
+                $user = User::create([
+                    'id' => Str::uuid()->toString(),
+                    'name' => $userInfo->displayName,
+                    'line_id' => $userInfo->userId
+                ]);
+            }
+            $conversations = Conversations::where('id', $roomId)->first();
+            if (!$conversations) {
+                $conversations = Conversations::create([
+                    'id' => $roomId,
+                    'type' => 'room'
+                ]);
+            }
+            $userConversation = UserConversation::firstOrCreate(
+                ['conversation_id' => $conversations->id],
+                ['user_id' => $user->$line_id]
+            );
+            DB::commit();
+        } catch (\Throwable $th) {
+            Log::error($th);
+            DB::rollback();
+        }
     }
 }
