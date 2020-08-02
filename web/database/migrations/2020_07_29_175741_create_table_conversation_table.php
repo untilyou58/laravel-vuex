@@ -14,7 +14,7 @@ class CreateTableConversationTable extends Migration
     public function up()
     {
         Schema::create('conversations', function (Blueprint $table) {
-            $table->id();
+            $table->string('id')->primary();
             $table->string('type')->nullable();
             $table->timestamps();
         });

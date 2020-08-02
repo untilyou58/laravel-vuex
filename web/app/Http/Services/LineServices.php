@@ -151,6 +151,7 @@ class LineServices
             $userId = $receive->getMembers();
             $roomId = $receive->getRoomId();
             $userInfo = $bot->getProfile($userId[0]['userId']);
+            $userInfo = $userInfo->getJSONDecodedBody();
             return $this->storeConversation($userId, $roomId, $userInfo);
         }
         return;
@@ -161,12 +162,12 @@ class LineServices
         try {
             Log::info('RUN STORE_CONVERSATION FN');
             DB::beginTransaction();
-            $user = User::where('line_id', $userInfo->userId)->first();
+            $user = User::where('line_id', $userInfo['userId'])->first();
             if (!$user) {
                 $user = User::create([
                     'id' => Str::uuid()->toString(),
-                    'name' => $userInfo->displayName,
-                    'line_id' => $userInfo->userId
+                    'name' => $userInfo['displayName'],
+                    'line_id' => $userInfo['userId']
                 ]);
             }
             $conversations = Conversations::where('id', $roomId)->first();
@@ -178,7 +179,7 @@ class LineServices
             }
             $userConversation = UserConversation::firstOrCreate(
                 ['conversation_id' => $conversations->id],
-                ['user_id' => $user->$line_id]
+                ['user_id' => $userInfo['userId']]
             );
             DB::commit();
         } catch (\Throwable $th) {
