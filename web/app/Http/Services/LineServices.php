@@ -69,6 +69,7 @@ class LineServices
                 if ($receive instanceof TextMessage) {
                     $text = $receive->getText();
                     $bot->replyText($receive->getReplyToken(), $text);
+                    $this->textHandle($receive, $bot);
                 } elseif ($receive instanceof ImageMessage) {
                     $contentProvider = $receive->getContentProvider();
                     $replyToken = $receive->getReplyToken();
@@ -124,7 +125,7 @@ class LineServices
             } elseif ($receive instanceof LeaveEvent) {
                 // TODO
             } elseif ($receive instanceof MemberLeaveEvent) {
-                
+                $this->leaveMemberHandle($receive, $bot);
             } elseif ($receive instanceof PostbackEvent) {
                 // TODO
             } elseif ($receive instanceof BeaconDetectionEvent) {
@@ -155,6 +156,64 @@ class LineServices
             return $this->storeConversation($userId, $roomId, $userInfo);
         }
         return;
+    }
+
+    private function textHandle(TextMessage $receive, LINEBot $bot)
+    {
+        try {
+            Log::info('RUN SEND TEXT HANDLE FN');
+            $userId = $receive->getUserId();
+            $roomId = $receive->getRoomId();
+            $userInfo = $bot->getProfile($userId);
+            $userInfo = $userInfo->getJSONDecodedBody();
+            DB::beginTransaction();
+            $user = User::where('line_id', $userInfo['userId'])->first();
+            if (!$user) {
+                $user = User::create([
+                    'id' => Str::uuid()->toString(),
+                    'name' => $userInfo['displayName'],
+                    'line_id' => $userInfo['userId']
+                ]);
+            }
+            $conversations = Conversations::where('id', $roomId)->first();
+            if (!$conversations) {
+                $conversations = Conversations::create([
+                    'id' => $roomId,
+                    'type' => 'room'
+                ]);
+            }
+            $userConversation = UserConversation::firstOrCreate(
+                ['conversation_id' => $conversations->id],
+                ['user_id' => $userInfo['userId']]
+            );
+            $textMessage = Messages::create([
+                'content' => $receive->getText(),
+                'type' => $receive->getMessageType(),
+                'id_line' => $userId
+            ]);
+            DB::commit();
+        } catch (\Throwable $th) {
+            Log::error($th);
+            DB::rollback();
+        }
+    }
+
+    private function leaveMemberHandle(MemberLeaveEvent $receive, LINEBot $bot)
+    {
+        if ($receive->isRoomEvent()) {
+            Log::info('RUN MEMBER_LEAVE_HANDLE FN');
+            $userId = $receive->getMembers();
+            $roomId = $receive->getRoomId();
+            $userInfo = $bot->getProfile($userId[0]['userId']);
+            $userInfo = $userInfo->getJSONDecodedBody();
+            return $this->updateConversation($userId, $roomId, $userInfo);
+        }
+        return;
+    }
+
+    private function updateConversation($userId, $roomId, $userInfo)
+    {
+        #TODO
     }
 
     private function storeConversation($userId, $roomId, $userInfo)
